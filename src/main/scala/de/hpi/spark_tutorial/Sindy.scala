@@ -5,6 +5,7 @@ import org.apache.spark.sql.SparkSession
 object Sindy {
 
   def discoverINDs(inputs: List[String], spark: SparkSession): Unit = {
+    import spark.implicits._
 
     // TODO
     /**
@@ -18,15 +19,21 @@ object Sindy {
      * - complexity is O(n²-n) -> so we want to distribute it
      */
 
-    val frames = inputs.map(table => spark.read
+    val dfs = inputs.map(table => spark.read
       .option("sep", ";")
       .option("header", "true")
       .csv(table)
     )
-    // frames.foreach(frame => print(frame.show()))
+    // dfs.foreach(table => print(table.show()))
 
     // TODO 1st step: -> "cells": zip every value of every cell with column name
     //  example: [("Thriller", (a)), ("Thriller", (t)), ("Thriller", (p))]
+    val cells = dfs.map(df => {
+      val columns = df.columns
+      df.flatMap(row => row.toSeq.map(p => String.valueOf(p)).zip(columns))
+    })
+
+    //cells.take(1).foreach(cell => print(cell.show()))
 
     // TODO 2nd step: -> "cache-based preaggr.": pre-aggregate all values that occur multiple times so that:
     //  (("Thriller", (a, t)) in worker 1, ("Thriller", (p)) in worker 2
