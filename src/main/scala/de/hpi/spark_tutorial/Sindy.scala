@@ -18,7 +18,37 @@ object Sindy {
      * - complexity is O(n²-n) -> so we want to distribute it
      */
 
-    // TODO print all dependencies
+    val frames = inputs.map(table => spark.read
+      .option("sep", ";")
+      .option("header", "true")
+      .csv(table)
+    )
+    // frames.foreach(frame => print(frame.show()))
+
+    // TODO 1st step: -> "cells": zip every value of every cell with column name
+    //  example: [("Thriller", (a)), ("Thriller", (t)), ("Thriller", (p))]
+
+    // TODO 2nd step: -> "cache-based preaggr.": pre-aggregate all values that occur multiple times so that:
+    //  (("Thriller", (a, t)) in worker 1, ("Thriller", (p)) in worker 2
+
+    // TODO 3rd step: -> "global partitioning & attribute sets": bring same values from different workers
+    //  to the same workers and create sets of columns with potential INDs; example: everything with value "Thriller"
+    //  is in the same worker, worker creates: {a,t,p}
+
+    // TODO 4th step: -> "inclusion lists": from every set, create a list of possible inclusion dependencies:
+    //  [(a, {t,p}), (t, {a,p}), (p,{t,a})].
+    //  note: also create lists with length 1, if a value only occurs in one specific column
+
+    // TODO 5th step: -> "partition": match inclusion lists to workers so that a set of tables is only checked by
+    //  a particular worker
+    //  example: if a worker has (a, {t,p}), he also has every other inclusion list that mentions either of a,t, or p
+
+    // TODO 6th step: -> "aggregate": if there are inclusion lists, where a column has no dependency (/ is "alone"),
+    //  they are not dependent.
+    //  from all other inclusion potentials, where a column potentially has an IND && never appears "alone" like this,
+    //  create INDs
+
+    // TODO 7th step: -> print all created INDs
     //  for correct solution see slide 45
     // println(resultline) or whatever
   }
