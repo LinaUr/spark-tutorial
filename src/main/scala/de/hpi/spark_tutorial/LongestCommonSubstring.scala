@@ -58,7 +58,9 @@ object LongestCommonSubstring {
       .option("delimiter", ",")
       .csv(s"data/$input.csv")
       .toDF("ID", "Name", "Password", "Gene")
-      .as[(String, String, String, String)]
+      .as[(String, String, String, String)] // cast dataframe to dataset
+
+    println("# Longest Common Substring for sudent n with any of the other students")
 
     val result = students
       .repartition(32)

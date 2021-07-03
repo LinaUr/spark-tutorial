@@ -62,10 +62,20 @@ object Tutorial {
 
     // Read a Dataset from a file
     val employees = spark.read
-      .option("inferSchema", "true")
-      .option("header", "true")
+      .option("inferSchema", "true") // infer the schema from what we read
+      .option("header", "true") // we say yes, there is a header line that we can use
       .csv("data/employees.csv") // also text, json, jdbc, parquet
-      .as[(String, Int, Double, String)]
+      .as[(String, Int, Double, String)] // transform/cast dataframe into a dataset
+
+    //employees.show() // will nicely print the result (dataset) to the console
+
+    // example
+//    employees.distinct()
+//              .filter(_._2 > 42) // filter where the second argument is > 42
+//              .checkpoint()
+//              .map(tuple => tuple._1 + 7)
+//              .join(numbers)
+//              .show
 
     // Read a Dataset from a database: (requires a database being setup as well as driver class in maven)
     //    val top_templates = spark.sqlContext.read.format("jdbc")
@@ -87,7 +97,8 @@ object Tutorial {
     val filtered = mapped.filter(s => s.contains("1"))
     val sorted = filtered.sort()
     List(numbers, mapped, filtered, sorted).foreach(dataset => println(dataset.getClass))
-    sorted.show()
+    println("Basic Transformation sorted")
+    sorted.show() // prints a value-column of "This is a number: 1" ...
 
     println("---------------------------------------------------------------------------------------------------------")
 
@@ -95,7 +106,8 @@ object Tutorial {
     val collected = filtered.collect() // collects the entire dataset to the driver process
     val reduced = filtered.reduce((s1, s2) => s1 + "," + s2) // reduces all values successively to one
     filtered.foreach(s => println(s)) // performs an action for each element (take care where the action is evaluated!)
-    List(collected, reduced).foreach(result => println(result.getClass))
+    println("Basic Transformation List(collected, reduced)")
+    List(collected, reduced).foreach(result => println(result.getClass)) // prints no column, but only separate lines
 
     println("---------------------------------------------------------------------------------------------------------")
 
@@ -103,15 +115,17 @@ object Tutorial {
     val untypedDF = numbers.toDF() // DS to DF
     val stringTypedDS = untypedDF.map(r => r.get(0).toString) // DF to DS via map
     val integerTypedDS = untypedDF.as[Int] // DF to DS via as() function that cast columns to a concrete types
+    println("Basic Transformation List(untypedDF, stringTypedDS, integerTypedDS)")
     List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.head.getClass))
     List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.head))
 
     println("---------------------------------------------------------------------------------------------------------")
 
     // Mapping to tuples
+    println("Basic Transformation map numbers to tuple")
     numbers
       .map(i => (i, "nonce", 3.1415, true))
-      .take(10)
+      .take(10) // take 10 elements
       .foreach(println(_))
 
     println("---------------------------------------------------------------------------------------------------------")
@@ -122,6 +136,7 @@ object Tutorial {
 
     import org.apache.spark.sql.functions._
 
+    println("Basic Transformation SQL query on table")
     sqlResult // DF
       .as[(String, Int, Double, String)] // DS
       .sort(desc("Salary")) // desc() is a standard function from the spark.sql.functions package
@@ -132,7 +147,7 @@ object Tutorial {
 
     // Grouping and aggregation for Datasets
     val topEarners = employees
-      .groupByKey { case (name, age, salary, company) => company }
+      .groupByKey { case (name, age, salary, company) => company } // take tuple in and group by company
       .mapGroups { case (key, iterator) =>
         val topEarner = iterator.toList.maxBy(t => t._3) // could be problematic: Why?
         (key, topEarner._1, topEarner._3)
@@ -169,10 +184,10 @@ object Tutorial {
 
     // Fill nulls and move date to next week
     val filledNulls = dateDF
-      .na.fill("no_null_value", Seq("date_today", "stamp_now", "nulls")) // fill nulls
+      .na.fill("no_null_value", Seq("date_today", "stamp_now", "nulls")) // fill null values with content
       .select(
         col("id"),
-        date_add(col("date_today"), 7).as("date_next_week"), // date next week
+        date_add(col("date_today"), 7).as("date_next_week"), // date next week ...adds 7 days to date_today column and stored result in date_next_week column
         col("nulls").as("no_nulls"),
         col("nulls").isNull.as("is_null")) // is-null-check
     filledNulls.show()
@@ -219,8 +234,10 @@ object Tutorial {
     //------------------------------------------------------------------------------------------------------------------
     // Shared Variables across Executors
     //------------------------------------------------------------------------------------------------------------------
+    println("# Shared Variables across Executors")
 
-    // The problem: shipping large variables (multiple times) to every executor is expensive
+    // The PROBLEM: shipping large variables (multiple times) to every executor is expensive
+    println("copy name")
     val names = List("Berget", "Bianka", "Cally")
     val filtered1 = employees.filter(e => names.contains(e._1)) // a copy of names is shipped to every executor
     val filtered2 = employees.filter(e => !names.contains(e._1)) // a copy of names is shipped to every executor again!
@@ -229,13 +246,15 @@ object Tutorial {
 
     println("---------------------------------------------------------------------------------------------------------")
 
-    // Solution: broadcast variable
+    // SOLUTION: broadcast variable name to all process instances in the cluster
+    // it's then kept in main memory for a longer time
+    println("broadcast name")
     val bcNames = spark.sparkContext.broadcast(names)
     val bcFiltered1 = employees.filter(e => bcNames.value.contains(e._1)) // a copy of names is shipped to each executor node
     val bcFiltered2 = employees.filter(e => !bcNames.value.contains(e._1)) // a copy of names is already present on the node
     val bcFiltered3 = employees.filter(e => bcNames.value(1).equals(e._1)) // a copy of names is already present on the node
     List(bcFiltered1, bcFiltered2, bcFiltered3).foreach(_.show(1))
-    bcNames.destroy() // finally, destroy the broadcast variable to free its memory on every node
+    bcNames.destroy() // FINALLY, DESTROY the broadcast variable to free its memory on every node
 
     println("---------------------------------------------------------------------------------------------------------")
 
@@ -246,7 +265,7 @@ object Tutorial {
     // - should be used with care: http://imranrashid.com/posts/Spark-Accumulators/
     val appleAccumulator = spark.sparkContext.longAccumulator("Apple Accumulator")
     val microsoftAccumulator = spark.sparkContext.longAccumulator("Microsoft Accumulator")
-    employees.foreach(
+    employees.foreach( // this foreach is actually a Spark-foreach which executes the UDF distributedly
       e => if (e._4 == "Apple") appleAccumulator.add(1)
       else if (e._4 == "Microsoft") microsoftAccumulator.add(1)
       /* ... */) // accumulators are useful only if the action also does something else is; otherwise use filter and count!
@@ -259,6 +278,7 @@ object Tutorial {
     // Machine Learning
     // https://spark.apache.org/docs/2.2.0/ml-classification-regression.html#decision-tree-classifier
     //------------------------------------------------------------------------------------------------------------------
+    println("# Machine Learning")
 
     val data = spark
       .read
@@ -302,7 +322,7 @@ object Tutorial {
     // Run the entire pipeline:
     // 1. The featureIndexer adds the column "indexedFeatures"
     // 2. The decisionTree trains the decision tree model
-    val model = pipeline.fit(trainingData) // produces a model, which is a new transformer
+    val model = pipeline.fit(trainingData) // produces a model, which is a new transformer; fit() lets the model train
 
     // Print the learned decision tree model
     val treeModel = model

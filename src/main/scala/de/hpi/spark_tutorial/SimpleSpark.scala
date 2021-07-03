@@ -57,13 +57,16 @@ object SimpleSpark extends App {
     //------------------------------------------------------------------------------------------------------------------
     // Spark Tutorial
     //------------------------------------------------------------------------------------------------------------------
+    // TODO remove files Tutorial and LongestCommonSubstring
 
+    // TODO i think this can be commented out as well?
     Tutorial.execute(spark)
 
     //------------------------------------------------------------------------------------------------------------------
     // Longest Common Substring Search
     //------------------------------------------------------------------------------------------------------------------
 
+    // TODO comment out or delete - not relevant for homework
     time {LongestCommonSubstring.discoverLCSs("students2", spark)}
 
     //------------------------------------------------------------------------------------------------------------------
