@@ -73,12 +73,12 @@ object SimpleSpark extends App {
     // Inclusion Dependency Discovery (Homework)
     //------------------------------------------------------------------------------------------------------------------
 
-    //val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders")
-    //  .map(name => s"$path/tpch_$name.csv")
+    val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders")
+      .map(name => s"$path/tpch_$name.csv")
     // TODO only use region and nation tables for the beginning
 
-    val inputs = List("region", "nation")
-      .map(name => s"$path/tpch_$name.csv")
+    /*val inputs = List("region", "nation")
+      .map(name => s"$path/tpch_$name.csv")*/
 
     time {Sindy.discoverINDs(inputs, spark)}
   }
