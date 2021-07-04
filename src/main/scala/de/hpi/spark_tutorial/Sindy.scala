@@ -1,5 +1,6 @@
 package de.hpi.spark_tutorial
 
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, SparkSession}
 
 object Sindy {
@@ -38,28 +39,21 @@ object Sindy {
     // TODO 2nd step: -> "cache-based preaggr.": pre-aggregate all values that occur multiple times so that:
     //  (("Thriller", (a, t)) in worker 1, ("Thriller", (p)) in worker 2
 
-    //val grouped = cells.map(cell => cell.groupByKey(cell => cell._1))
-
-    val KVGDs = cells.map(cell => cell.groupByKey(_._1))//.mapGroups{case(k, iter) => (k, iter.map(x => x._2).toArray)}.show
+    val cells = dfs.map(df => {
+      val columns = df.columns.map(name => List(name))
+      val cells = df.flatMap(row => row.toSeq.map(p => String.valueOf(p)).zip(columns))
+      cells.rdd.reduceByKey((a, b) => (a ++ b).distinct)
+    })
+    //cells.foreach(cell => print(cell.toDF().show()))
 
     // TODO 3rd step: -> "global partitioning & attribute sets": bring same values from different workers
     //  to the same workers and create sets of columns with potential INDs; example: everything with value "Thriller"
     //  is in the same worker, worker creates: {a,t,p} {c}
 
-    val aggregatedDs = KVGDs.combinations(2).toList
-                            .map(kvgvList => kvgvList.head.cogroup(kvgvList.tail.head)((key:String, it1:Iterator[(String,String)], it2:Iterator[(String,String)]) => it1 ++ it2))
-//    aggregatedDs.foreach(a => a.show())
-
-    val attributeDfs = aggregatedDs
-              .map(aggDs => aggDs.groupByKey(_._1).mapGroups{case(group, values) => (group, values.map(v => v._2).toSet)})
-              .map(_.drop("_1").toDF()) // drop the keys
-
-
-    // join all DFs (which represent a single attribute row) to a single DF
-    var attributeSets = attributeDfs.tail.foldLeft(attributeDfs.head)((accDF, newDF) => accDF.join(newDF, Seq("_2")))
-    attributeSets = attributeSets.distinct()
-
-    attributeSets.show()
+    // as on slide "reduce by value union attributes"
+    val reducedUnionAttributes = cells.reduce((a, b) => a.union(b))
+    //reducedUnionAttributes.foreach(s => print(s))
+    val attributeSets = reducedUnionAttributes.reduceByKey((a, b) => (a ++ b).distinct).map(_._2)
 
 
     // TODO 4th step: -> "inclusion lists": from every set, create a list of possible inclusion dependencies:
