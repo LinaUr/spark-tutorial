@@ -13,8 +13,8 @@ object Sindy {
       .csv(table)
     )
 
-    // 1st step: -> "cells": zip every value of every cell with column name -> [("Thriller", (a)), ("Thriller", (t)), ("Thriller", (p))]
-    // 2nd step: -> "cache-based preaggr.": pre-aggregate all values that occur multiple times -> (("Thriller", (a, t)) in worker 1, ("Thriller", (p)) in worker 2
+    // step 1: -> "cells": zip every value of every cell with column name -> [("Thriller", (a)), ("Thriller", (t)), ("Thriller", (p))]
+    // step 2: -> "cache-based preaggr.": pre-aggregate all values that occur multiple times -> (("Thriller", (a, t)) in worker 1, ("Thriller", (p)) in worker 2
     // stratosphere plan: flat-map split records; Step 1 + 2 can be combined
     val cells = dfs.map(df => {
       val columns = df.columns.map(name => List(name))
@@ -23,8 +23,9 @@ object Sindy {
     })
 
     // stratosphere plan: reduce by value union attributes -> {a,t,p} {c}
-    val reducedUnionAttributes = cells.reduce((a, b) => a.union(b))
-    val attributeSets = reducedUnionAttributes.reduceByKey((a, b) => (a ++ b).distinct).map(_._2)
+    val attributeSets = cells.reduce((a, b) => a.union(b))
+                              .reduceByKey((a, b) => (a ++ b).distinct)
+                              .map(_._2)
 
     // stratosphere plan: flatmap create inclusion lists
     val inclusionLists = attributeSets
@@ -32,8 +33,10 @@ object Sindy {
         attributeSet.map(column => (column , attributeSet.toSet - column))
       })
 
-    val results = inclusionLists.reduceByKey(_ intersect _).filter(_._2.nonEmpty)
-
-    results.collect().sortBy(_._1).foreach(n => println(s"${n._1} < ${n._2.mkString(", ")}")) // print all INDs
+    inclusionLists.reduceByKey(_ intersect _)
+                  .filter(_._2.nonEmpty)
+                  .collect()
+                  .sortBy(_._1)
+                  .foreach(n => println(s"${n._1} < ${n._2.mkString(", ")}")) // print all INDs
   }
 }
