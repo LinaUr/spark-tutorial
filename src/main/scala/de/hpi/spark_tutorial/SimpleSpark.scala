@@ -55,30 +55,14 @@ object SimpleSpark extends App {
     println("---------------------------------------------------------------------------------------------------------")
 
     //------------------------------------------------------------------------------------------------------------------
-    // Spark Tutorial
-    //------------------------------------------------------------------------------------------------------------------
-    // TODO remove files Tutorial and LongestCommonSubstring
-
-    // TODO i think this can be commented out as well?
-    //Tutorial.execute(spark)
-
-    //------------------------------------------------------------------------------------------------------------------
-    // Longest Common Substring Search
-    //------------------------------------------------------------------------------------------------------------------
-
-    // TODO comment out or delete - not relevant for homework
-    //time {LongestCommonSubstring.discoverLCSs("students2", spark)}
-
-    //------------------------------------------------------------------------------------------------------------------
     // Inclusion Dependency Discovery (Homework)
     //------------------------------------------------------------------------------------------------------------------
 
     val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders")
       .map(name => s"$path/tpch_$name.csv")
-    // TODO only use region and nation tables for the beginning
 
-    /*val inputs = List("region", "nation")
-      .map(name => s"$path/tpch_$name.csv")*/
+//    val inputs = List("region", "nation")
+//      .map(name => s"$path/tpch_$name.csv")
 
     time {Sindy.discoverINDs(inputs, spark)}
   }
